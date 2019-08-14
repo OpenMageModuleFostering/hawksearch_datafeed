@@ -1,0 +1,30 @@
+<?php
+/**
+ * Copyright (c) 2013 Hawksearch (www.hawksearch.com) - All Rights Reserved
+ *
+ * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+ * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+ * PARTICULAR PURPOSE.
+ */
+?>
+<script type="text/javascript">
+	//<![CDATA[
+	Validation.add('validate-cron-ajax', 'Cron string is not valid', function(v){
+		var status = false;
+		new Ajax.Request('<?php echo $this->getValidateUrl() ?>', {
+			asynchronous: false,
+			parameters: {cronString: v},
+			onSuccess: function(t) {
+				var res = t.responseText.evalJSON();
+				status = res.valid;
+			},
+			onFailure: function(t) {
+				alert('Unable to validate cron string, please refresh page and try again.');
+				status = false;
+			}
+		});
+		return status;
+	});
+	//]]>
+</script>

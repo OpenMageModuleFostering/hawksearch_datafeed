@@ -23,7 +23,17 @@ class Hawksearch_Datafeed_Block_System_Config_Frontend_Feed_Generateimagecache_J
      *
      * @return string
      */
-    public function getGenerateUrl() {
+	public function getGenerateUrl() {
+		return Mage::getModel('adminhtml/url')->getUrl(
+			'adminhtml/hawkdatagenerate/runImageCacheGeneration',
+			array(
+				'_secure' => true,
+				'_store' => Mage_Core_Model_App::ADMIN_STORE_ID
+			)
+		);
+	}
+
+	public function getGenerateUrlold() {
 		return Mage::getUrl('hawksearch_datafeed/search/runImageCacheGeneration/',
 			array(
 				'_secure' => true,

@@ -8,29 +8,24 @@
  * PARTICULAR PURPOSE.
  */
  
-class Hawksearch_Datafeed_Block_System_Config_Frontend_Feed_Generate_Js extends Mage_Adminhtml_Block_Template {
+class Hawksearch_Datafeed_Block_System_Config_Frontend_Feed_Cron_Js extends Mage_Adminhtml_Block_Template {
 
     /**
      * Sets javascript template to be included in the adminhtml js text_list block
      */
     protected function _construct() {
         parent::_construct();
-        $this->setTemplate('hawksearch/datafeed/generate/js.phtml');
+        $this->setTemplate('hawksearch/datafeed/validate.phtml');
     }
 
     /**
-     * Returns the run all feeds async url
+     * Returns the cron string validation url
      *
      * @return string
      */
-    public function getGenerateUrl() {
-//		return Mage::getUrl('hawksearch_datafeed/search/runFeedGeneration/',
-//			array(
-//				'_secure' => true,
-//				'_store' => Mage_Core_Model_App::ADMIN_STORE_ID
-//			));
+    public function getValidateUrl() {
 		return Mage::getModel('adminhtml/url')->getUrl(
-			'adminhtml/hawkdatagenerate/runFeedGeneration',
+			'adminhtml/hawkdatagenerate/validateCronString',
 			array(
 				'_secure' => true,
 				'_store' => Mage_Core_Model_App::ADMIN_STORE_ID

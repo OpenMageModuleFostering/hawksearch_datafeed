@@ -1,0 +1,3 @@
+Order deny,allow
+Deny from all
+Allow from 127.0.0.1 68.72.70ZZ 12.133 76.227.222 12.198.148

@@ -9,11 +9,13 @@
  */
  
 //Save cron job to the core config data table
+// the user should configure this. switched to a cron string for scheduling to allow
+// multiple runs per day.
 
-$frequency = Mage::getConfig()->getNode('default/hawksearch_datafeed/cron/frequency');
-
-$time = explode(",", Mage::getConfig()->getNode('default/hawksearch_datafeed/cron/time'));
-
-$cronTab = Mage::helper('hawksearch_datafeed')->getCronTimeAsCrontab($frequency, $time);
-
-Mage::getModel("hawksearch_datafeed/system_config_backend_cron")->saveCronTab($cronTab);
+//$frequency = Mage::getConfig()->getNode('default/hawksearch_datafeed/cron/frequency');
+//
+//$time = explode(",", Mage::getConfig()->getNode('default/hawksearch_datafeed/cron/time'));
+//
+//$cronTab = Mage::helper('hawksearch_datafeed')->getCronTimeAsCrontab($frequency, $time);
+//
+//Mage::getModel("hawksearch_datafeed/system_config_backend_cron")->saveCronTab($cronTab);

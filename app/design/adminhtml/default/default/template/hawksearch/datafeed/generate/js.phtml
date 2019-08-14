@@ -16,15 +16,21 @@
 		buttonId: null,
 		init: function () {
 			this.url = '<?php echo $this->getGenerateUrl() ?>';
-			this.buttonId = '<?php echo $this->getButtonId()?>';
+			this.buttonId = '<?php echo $this->getButtonId() ?>';
 			this.displayId = "hawksearch_display_msg";
 			this.isInit = true;
+			this.forceId = 'feedforce';
 		},
 		generateFeed: function () {
 			if (!this.isInit) {
 				this.init();
 			}
+			var isForce = false;
+			if($(this.forceId)){
+				isForce = $(this.forceId).checked;
+			}
 			new Ajax.Request(this.url, {
+				parameters: {force: isForce},
 				onSuccess: function (transport) {
 					var response = transport.responseText.evalJSON();
 					this.displayResults(response);
@@ -49,6 +55,19 @@
 			$(this.buttonId).disabled = true;
 			$(this.buttonId).addClassName("disabled");
 			return responseEl.innerHTML = "<?php echo Mage::getModel('hawksearch_datafeed/feed')->getAjaxNotice(); ?>";
+		},
+		forceFeed: function() {
+			if (!this.isInit) {
+				this.init();
+			}
+			if($(this.forceId).checked && $(this.buttonId).disabled){
+				$(this.buttonId).disabled = false;
+				$(this.buttonId).removeClassName("disabled");
+			} else {
+				$(this.buttonId).disabled = true;
+				$(this.buttonId).addClassName("disabled");
+			}
+
 		}
 	}
 

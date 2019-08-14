@@ -66,7 +66,7 @@ class Hawksearch_Datafeed_Helper_Data extends Mage_Core_Helper_Abstract {
      * @return string
      */
     public function getImageWidth() {
-        return Mage::getStoreConfig(self::SECTION . self::FEED_GROUP . "image_width");
+        return Mage::getStoreConfig('hawksearch_datafeed/imagecache/image_width');
     }
 
      /**
@@ -75,7 +75,7 @@ class Hawksearch_Datafeed_Helper_Data extends Mage_Core_Helper_Abstract {
      * @return string
      */
     public function getImageHeight() {
-        return Mage::getStoreConfig(self::SECTION . self::FEED_GROUP . "image_height");
+        return Mage::getStoreConfig('hawksearch_datafeed/imagecache/image_height');
     }
 	
 	/**
@@ -164,7 +164,8 @@ class Hawksearch_Datafeed_Helper_Data extends Mage_Core_Helper_Abstract {
      *
      * @return Zend_Date
      */
-    public function getNextRunDateFromCronTime() {
+
+	public function getNextRunDateFromCronTimedead() {
         $now = Mage::app()->getLocale()->date();
         $frequency = $this->getCronFrequency();
         list($hours, $minutes, $seconds) = explode(',', $this->getCronTime());
@@ -221,5 +222,8 @@ class Hawksearch_Datafeed_Helper_Data extends Mage_Core_Helper_Abstract {
         return ((float) $usec + (float) $sec);
     }
 
+	public function getSelectedStores(){
+		return explode(',', Mage::getStoreConfig('hawksearch_datafeed/feed/stores'));
+	}
 
 }

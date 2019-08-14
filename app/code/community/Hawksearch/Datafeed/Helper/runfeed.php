@@ -24,7 +24,7 @@ if ($helper->thereAreFeedLocks()) {
 }
 if ($helper->CreateFeedLocks()) {
 	if (isset($opts['i'])) {
-		$feed->refreshImageCache($opts['i']);
+		$feed->refreshImageCache();
 	} else {
 		$feed->generateFeed();
 	}

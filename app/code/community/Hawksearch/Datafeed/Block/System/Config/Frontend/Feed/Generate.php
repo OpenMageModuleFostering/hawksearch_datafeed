@@ -55,12 +55,13 @@ class Hawksearch_Datafeed_Block_System_Config_Frontend_Feed_Generate extends Mag
                 'label' => $this->helper('hawksearch_datafeed')->__('Generate Feeds'),
                 'onclick' => 'javascript:hawkSearchFeed.generateFeed(); return false;'
             ));
-
+		$force = '';
         if ($this->_feedGenIsLocked()) {
-            $button->setData('class', 'disabled');
+			$button->setDisabled(true);
+			$force = ' <input type="checkbox" value="feedforce" id="feedforce" name="feedforce" onclick="hawkSearchFeed.forceFeed();"> force';
         }
 
-        return $button->toHtml();
+        return $button->toHtml() . $force;
     }
 
     /**

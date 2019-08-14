@@ -12,7 +12,7 @@ class Hawksearch_Datafeed_Helper_Feed {
     
     protected $_feedFilePath = null;
 
-    public function refreshImageCache($storeid) {
+    public function refreshImageCache() {
 		$tmppath = sys_get_temp_dir();
 		$tmpfile = tempnam($tmppath, 'hawkfeed_');
 
@@ -26,8 +26,9 @@ class Hawksearch_Datafeed_Helper_Feed {
 		fwrite($f, '#!/bin/sh' . "\n");
 		$phpbin = PHP_BINDIR . DIRECTORY_SEPARATOR . "php";
 
-		fwrite($f, "$phpbin $runfile -i $storeid -r $root -t $tmpfile\n");
+		fwrite($f, "$phpbin $runfile -i true -r $root -t $tmpfile\n");
 
+		// to debug, change '/dev/null' to some file path writable by the webserver
 		shell_exec("/bin/sh $tmpfile > /dev/null 2>&1 &");
 
 	}
@@ -50,6 +51,7 @@ class Hawksearch_Datafeed_Helper_Feed {
 
 		fwrite($f, "$phpbin $runfile -r $root -t $tmpfile\n");
 
+		// to debug, change '/dev/null' to some file path writable by the webserver
 		shell_exec("/bin/sh $tmpfile > /dev/null 2>&1 &");
 
     }
@@ -73,7 +75,7 @@ class Hawksearch_Datafeed_Helper_Feed {
      * @return string 
      */
     public function makeVarPath($directories) {
-        $path = Mage::getBaseDir('var');
+        $path = Mage::getBaseDir();
         foreach ($directories as $dir) {
             $path .= DS . $dir;
             if (!is_dir($path)) {

@@ -1,86 +1,102 @@
 <?xml version="1.0"?>
-	<!--
+<!--
 /**
- * Copyright (c) 2013 Hawksearch (www.hawksearch.com) - All Rights Reserved
- *
- * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
- * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
- * PARTICULAR PURPOSE.
- */
-	-->
+* Copyright (c) 2013 Hawksearch (www.hawksearch.com) - All Rights Reserved
+*
+* THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+* KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+* IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+* PARTICULAR PURPOSE.
+*/
+-->
 <config>
-	<modules>
-		<Hawksearch_Datafeed>
-			<version>1.0.3.1</version>
-		</Hawksearch_Datafeed>
-	</modules>
-	<global>
-		<blocks>
-			<hawksearch_datafeed>
-				<class>Hawksearch_Datafeed_Block</class>
-			</hawksearch_datafeed>
-		</blocks>
-		<helpers>
-			<hawksearch_datafeed>
-				<class>Hawksearch_Datafeed_Helper</class>
-			</hawksearch_datafeed>
-		</helpers>
-		<models>
-			<hawksearch_datafeed>
-				<class>Hawksearch_Datafeed_Model</class>
-			</hawksearch_datafeed>
-		</models>
-		<resources>
-			<hawksearch_datafeed_setup>
-				<setup>
-					<module>Hawksearch_Datafeed</module>
-				</setup>
-			</hawksearch_datafeed_setup>
-		</resources>
-	</global>
-	<frontend>
-		<routers>
-			<hawksearch_datafeed>
-				<use>standard</use>
-				<args>
-					<module>Hawksearch_Datafeed</module>
-					<frontName>hawksearch</frontName>
-				</args>
-			</hawksearch_datafeed>
-		</routers>
-	</frontend>
-	<default>
-		<hawksearch_datafeed>
-			<general>
-				<enabled>1</enabled>
-				<logging_enabled>1</logging_enabled>
-			</general>
-			<feed>
-				<batch_limit>10000</batch_limit>
-				<image_width>135</image_width>
-				<exclude_fields>description,short_description,options_container,gift_message_available,visibility,status,tax_class_id,required_options,msrp_display_actual_price_type,enable_googlecheckout,created_at,updated_at,sku</exclude_fields>
-				<stockstatus>0</stockstatus>
-				<itemstatus>0</itemstatus>
+    <modules>
+        <Hawksearch_Datafeed>
+            <version>1.1.1.6</version>
+        </Hawksearch_Datafeed>
+    </modules>
+    <global>
+        <blocks>
+            <hawksearch_datafeed>
+                <class>Hawksearch_Datafeed_Block</class>
+            </hawksearch_datafeed>
+        </blocks>
+        <helpers>
+            <hawksearch_datafeed>
+                <class>Hawksearch_Datafeed_Helper</class>
+            </hawksearch_datafeed>
+        </helpers>
+        <models>
+            <hawksearch_datafeed>
+                <class>Hawksearch_Datafeed_Model</class>
+            </hawksearch_datafeed>
+        </models>
+        <resources>
+            <hawksearch_datafeed_setup>
+                <setup>
+                    <module>Hawksearch_Datafeed</module>
+                </setup>
+            </hawksearch_datafeed_setup>
+        </resources>
+    </global>
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <hawksearch_datafeed after="Mage_Adminhtml">Hawksearch_Datafeed_Adminhtml</hawksearch_datafeed>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+    <!--the frontend router is used for the image cache key -->
+    <frontend>
+        <routers>
+            <hawksearch_datafeed>
+                <use>standard</use>
+                <args>
+                    <module>Hawksearch_Datafeed</module>
+                    <frontName>hawksearch</frontName>
+                </args>
+            </hawksearch_datafeed>
+        </routers>
+    </frontend>
+    <default>
+        <hawksearch_datafeed>
+            <general>
+                <enabled>1</enabled>
+                <logging_enabled>1</logging_enabled>
+            </general>
+            <feed>
+                <batch_limit>10000</batch_limit>
+                <exclude_fields>
+                    description,short_description,options_container,gift_message_available,status,tax_class_id,required_options,msrp_display_actual_price_type,enable_googlecheckout,created_at,updated_at,sku
+                </exclude_fields>
+                <stockstatus>0</stockstatus>
+                <itemstatus>0</itemstatus>
                 <delimiter>tab</delimiter>
                 <buffer_size>65536</buffer_size>
                 <output_file_ext>txt</output_file_ext>
-                <feed_path>var/hawksearch/feeds</feed_path>
-			</feed>
-			<cron>
-				<frequency backend_model="adminhtml/system_config_backend_product_alert_cron">every_5min</frequency>
-				<disabled>0</disabled>
-                <time>02,00,00</time>
-			</cron>
-		</hawksearch_datafeed>
-	</default>
-	<crontab>
-		<jobs>
-			<hawksearch_datafeed>
-				<run>
-					<model>hawksearch_datafeed/cron::generateFeeds</model>
-				</run>
-			</hawksearch_datafeed>
-		</jobs>
-	</crontab>
+                <feed_path>hawksearch/feeds</feed_path>
+            </feed>
+            <imagecache>
+                <image_width>135</image_width>
+            </imagecache>
+        </hawksearch_datafeed>
+        <crontab>
+            <jobs>
+                <hawksearch_datafeed_feed>
+                    <run>
+                        <model>hawksearch_datafeed/cron::generateFeeds</model>
+                    </run>
+                </hawksearch_datafeed_feed>
+                <hawksearch_datafeed_imagecache>
+                    <run>
+                        <model>hawksearch_datafeed/cron::generateImagecache</model>
+                    </run>
+                </hawksearch_datafeed_imagecache>
+            </jobs>
+        </crontab>
+    </default>
 </config>

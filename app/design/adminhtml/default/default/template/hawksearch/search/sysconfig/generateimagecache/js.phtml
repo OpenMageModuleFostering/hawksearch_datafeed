@@ -1,0 +1,50 @@
+<?php
+/**
+ * Copyright (c) 2013 Hawksearch (www.hawksearch.com) - All Rights Reserved
+ *
+ * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+ * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+ * PARTICULAR PURPOSE.
+ */
+?>
+<script type="text/javascript">
+//<![CDATA[
+
+    var hawkSearchCache = {
+        isInit : false,
+        buttonId : null,
+        init : function() {
+            this.url = '<?php echo $this->getGenerateUrl() ?>';
+            this.buttonId = '<?php echo $this->getButtonId()?>';
+            this.displayId = "hawksearch_display_msg";
+            this.isInit = true;
+        },
+        generateImageCache : function() {
+            if (!this.isInit) {
+                this.init();
+            }
+            new Ajax.Request(this.url, {
+                onSuccess: function(transport) {
+                    var response = transport.responseText.evalJSON();
+                    this.displayResults(response);
+                }.bind(this)
+            });
+        },
+        displayResults : function(response) {
+            var responseEl = $(this.displayId);
+            if (responseEl == null) {
+                var responseEl = new Element('p', {id : this.displayId}).addClassName('note');
+                Element.insert($(this.buttonId) , {after: responseEl});
+            }
+            if (response.error) {
+                return responseEl.innerHTML = response.error;
+            }
+            $(this.buttonId).disabled = true;
+            $(this.buttonId).addClassName("disabled");
+            return responseEl.innerHTML = "<?php echo Mage::getModel('hawksearch_datafeed/feed')->getAjaxNoticeImageCache(); ?>";
+        }
+    }
+
+//]]>
+</script>

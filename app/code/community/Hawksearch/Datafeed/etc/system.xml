@@ -1,0 +1,244 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) 2013 Hawksearch (www.hawksearch.com) - All Rights Reserved
+ *
+ * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+ * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+ * PARTICULAR PURPOSE.
+ */
+-->
+<config>
+    <tabs>
+        <hawksearch translate="label" module="hawksearch_datafeed">
+            <label>HawkSearch</label>
+            <sort_order>200</sort_order>
+        </hawksearch>
+    </tabs>
+    <sections>
+        <hawksearch_datafeed translate="label" module="hawksearch_datafeed">
+            <label>DataFeed Settings</label>
+            <tab>hawksearch</tab>
+            <frontend_type>text</frontend_type>
+            <sort_order>100</sort_order>
+            <show_in_default>1</show_in_default>
+            <show_in_website>1</show_in_website>
+            <show_in_store>1</show_in_store>
+            <groups>
+                <general translate="label" module="hawksearch_datafeed">
+                    <label>General</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>1</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>1</show_in_store>
+                    <fields>
+                        <enabled translate="label">
+                            <label>Enabled</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>100</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </enabled>                        
+                        <logging_enabled>
+                            <label>Enabled Logging</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>200</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </logging_enabled>  
+                        <version translate="label">
+                            <label>Version</label>
+                            <frontend_type>label</frontend_type>
+                            <frontend_model>hawksearch_datafeed/system_config_form_field_version</frontend_model>
+                            <sort_order>300</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </version>                       
+                    </fields>
+                </general>
+                <feed translate="label" module="hawksearch_datafeed">
+                    <label>Feed Settings</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>100</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>1</show_in_store>
+                    <fields>
+                        <generate translate="label">
+                            <label>Generate Feed</label>
+                            <frontend_type>button</frontend_type>
+                            <frontend_model>hawksearch_datafeed/system_config_frontend_feed_generate</frontend_model>
+                            <comment>Manually generates feed.</comment>
+                            <sort_order>100</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </generate>
+                        <generateimagecache translate="label">
+                            <label>Generate Image Cache</label>
+                            <frontend_type>button</frontend_type>
+                            <frontend_model>hawksearch_datafeed/system_config_frontend_feed_generateimagecache</frontend_model>
+                            <comment>Manually generates image cache.</comment>
+                            <sort_order>150</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </generateimagecache>
+                        <submittal translate="label">
+                            <label>Next Automatic Feed Generation</label>
+                            <frontend_type>text</frontend_type>
+                            <frontend_model>hawksearch_datafeed/system_config_frontend_feed_next</frontend_model>
+                            <sort_order>200</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </submittal>
+                        <batch_limit translate="label">
+                            <label>Batch Limit</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>Set the block of blocks to batch at once</comment>
+                            <sort_order>300</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </batch_limit>
+                        <image_width translate="label">
+                            <label>Image Width</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>Set the width of the small image saved in the cache</comment>
+                            <sort_order>350</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </image_width>
+                        <image_height translate="label">
+                            <label>Image Height</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>Set the height of the small image saved in the cache</comment>
+                            <sort_order>375</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </image_height>
+                        <brand_attribute translate="label">
+                            <label>Brand Attribute Value</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>Set attribute_code value for the Brand attribute</comment>
+                            <sort_order>400</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </brand_attribute>
+                        <exclude_fields translate="label">
+                            <label>Attributes to Exclude</label>
+                            <frontend_type>textarea</frontend_type>
+                            <comment>Comma Delimited List of attribute_code values to exclude</comment>
+                            <sort_order>500</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </exclude_fields>
+                        <stockstatus translate="label">
+                            <label>Allow Out of Stock Items</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>600</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </stockstatus>
+                        <itemstatus>
+                            <label>Allow Disabled Items</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>700</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>                            
+                        </itemstatus>
+                        <optional_htaccess_user translate="label">
+                            <label>HTACCESS Username</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>Optional Username setting for sites with .htaccess enabled. Leave blank if not in use</comment>
+                            <sort_order>800</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </optional_htaccess_user>
+                        <optional_htaccess_password translate="label">
+                            <label>HTACCESS Password</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>Optional Username setting for sites with .htaccess enabled. Leave blank if not in use</comment>
+                            <sort_order>900</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </optional_htaccess_password>
+                        <option_type translate="label">
+                            <label>Attribute type</label>
+                            <frontend_type>text</frontend_type>
+                            <comment>Mode should generally be set to 'eav'</comment>
+                            <sort_order>900</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                        </option_type>
+                    </fields>
+                </feed>
+                <cron translate="label" module="hawksearch_datafeed">
+                    <label>Cron Settings</label>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>200</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>0</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <email translate="label">
+                            <label>Cron Email</label>
+                            <comment>When cron runs, email to send notification to.</comment>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>100</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </email>
+                        <frequency translate="label">
+                            <label>Frequency</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_cron_frequency</source_model>
+                            <backend_model>hawksearch_datafeed/system_config_backend_cron</backend_model>
+                            <sort_order>200</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </frequency>
+                        <time translate="label">
+                            <label>Start Time</label>
+                            <frontend_type>time</frontend_type>
+                            <sort_order>300</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </time>
+                        <disabled translate="label">
+                            <label>Disabled</label>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>400</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </disabled>
+                    </fields>
+                </cron>
+            </groups>
+        </hawksearch_datafeed>
+    </sections>
+</config>

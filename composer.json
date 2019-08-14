@@ -1,0 +1,16 @@
+{
+    "name": "OpenMageModuleFostering/HawkSearch_Datafeed",
+    "type": "magento-module",
+    "license": "Open-Software-License-(OSL)",
+    "homepage": "",
+    "description": "This package generates data feeds in the required format and can be consumed by Hawk Search.",
+    "authors": [
+    {
+        "name": "Hawksearch Inc.",
+        "email": "mmunoz@thanxmedia.com"
+    }
+],
+    "suggest": {
+        "magento-hackathon/magento-composer-installer": "*"
+    }
+}

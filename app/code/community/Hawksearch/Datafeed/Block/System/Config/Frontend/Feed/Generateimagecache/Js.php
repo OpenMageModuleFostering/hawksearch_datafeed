@@ -15,7 +15,7 @@ class Hawksearch_Datafeed_Block_System_Config_Frontend_Feed_Generateimagecache_J
      */
     protected function _construct() {
         parent::_construct();
-        $this->setTemplate('hawksearch/search/sysconfig/generateimagecache/js.phtml');
+        $this->setTemplate('hawksearch/datafeed/generateimagecache/js.phtml');
     }
 
     /**
@@ -24,10 +24,10 @@ class Hawksearch_Datafeed_Block_System_Config_Frontend_Feed_Generateimagecache_J
      * @return string
      */
     public function getGenerateUrl() {
-        $curStore = Mage::app()->getStore();
-        Mage::app()->setCurrentStore(1); //default storeID will always be 1
-        $myUrl = Mage::getUrl('hawksearch_datafeed/search/runImageCacheGeneration');
-        Mage::app()->setCurrentStore($curStore);
-        return $myUrl;
+		return Mage::getUrl('hawksearch_datafeed/search/runImageCacheGeneration/',
+			array(
+				'_secure' => true,
+				'_store' => Mage_Core_Model_App::ADMIN_STORE_ID
+			));
     }
 }

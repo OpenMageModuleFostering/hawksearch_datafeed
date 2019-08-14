@@ -214,7 +214,7 @@ class Hawksearch_Datafeed_Helper_Data extends Mage_Core_Helper_Abstract {
 		return Mage::getStoreConfig(self::SECTION . self::FEED_GROUP . 'output_file_ext');
 	}
 	public function getFeedFilePath() {
-		return Mage::getStoreConfig(self::SECTION . self::FEED_GROUP . 'feed_path');
+		return Mage::getBaseDir('base') . DS . Mage::getStoreConfig(self::SECTION . self::FEED_GROUP . 'feed_path');
 	}
     function mtime() {
         list($usec, $sec) = explode(" ", microtime());

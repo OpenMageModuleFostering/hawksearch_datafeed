@@ -181,15 +181,6 @@
                             <show_in_website>0</show_in_website>
                             <show_in_store>0</show_in_store>
                         </optional_htaccess_password>
-                        <option_type translate="label">
-                            <label>Attribute type</label>
-                            <frontend_type>text</frontend_type>
-                            <comment>Mode should generally be set to 'eav'</comment>
-                            <sort_order>900</sort_order>
-                            <show_in_default>1</show_in_default>
-                            <show_in_website>0</show_in_website>
-                            <show_in_store>0</show_in_store>
-                        </option_type>
                     </fields>
                 </feed>
                 <cron translate="label" module="hawksearch_datafeed">

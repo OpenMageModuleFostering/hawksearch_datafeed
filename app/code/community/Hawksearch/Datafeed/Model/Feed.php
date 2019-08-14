@@ -1,7 +1,5 @@
 <?php
 
-#error_reporting(E_ALL);
-#ini_set('display_errors', '1');
 /**
  * Copyright (c) 2013 Hawksearch (www.hawksearch.com) - All Rights Reserved
  *
@@ -23,6 +21,7 @@ class Hawksearch_Datafeed_Model_Feed extends Mage_Core_Model_Abstract {
 		$_totalProductCount,
 		$_imageHeight,
 		$_imageWidth,
+		$_storeId,
 		$_optionType;
 
 	private $countryMap;
@@ -39,7 +38,7 @@ class Hawksearch_Datafeed_Model_Feed extends Mage_Core_Model_Abstract {
 		// Ignore user aborts and allow the script
 		// to run forever
 		ignore_user_abort(true); // If Varnish decides that the results timed out. Browsers are better behaved.
-		set_time_limit(0); // Even with DB calls not counting towards execution time, it's still a long running script.  Vampiric bite FTW.
+		set_time_limit(0); // Even with DB calls not counting towards execution time, it's still a long running script.
 		/** @var $helper Hawksearch_Datafeed_Helper_Data */
 		$helper = Mage::helper('hawksearch_datafeed/data');
 
@@ -53,7 +52,7 @@ class Hawksearch_Datafeed_Model_Feed extends Mage_Core_Model_Abstract {
 
 		$this->_feedPath = $helper->getFeedFilePath();
 		if (empty($this->_feedPath)) {
-			$this->_feedPath = 'var/hawksearch/feeds';
+			$this->_feedPath = Mage::getBaseDir('base') . DS . 'var/hawksearch/feeds';
 		}
 
 		$this->_batchSize = $helper->getBatchLimit();
@@ -71,8 +70,22 @@ class Hawksearch_Datafeed_Model_Feed extends Mage_Core_Model_Abstract {
 		$this->outputFileDelimiter = $helper->getOutputFileDelimiter();
 		$this->bufferSize = $helper->getBufferSize();
 		$this->outputFileExtension = $helper->getOutputFileExtension();
+		$this->_storeId = 0;
 
 		parent::__construct();
+	}
+
+	/**
+	 * Adds a log entry to the hawksearch proxy log. Logging must
+	 * be enabled for both the module and Magneto
+	 * (See System >> Configuration >> Developer >> Log Settings
+	 *
+	 * @param $message
+	 */
+	public function log($message) {
+		if ($this->isLoggingEnabled) {
+			Mage::log("HAWKSEARCH: $message", null, 'hawksearch.log');
+		}
 	}
 
 	/**
@@ -118,8 +131,6 @@ AND a.attribute_code != 'msrp_enabled' AND a.attribute_code != 'msrp_display_act
 EOSQL;
 
 		// Prepare the array of attribute codes and compile a unique list of IDs to dereference
-
-		//die($sql.'Andrew');
 
 		if ($rows = $write->fetchAll($sql)) {
 			foreach ($rows as $row) {
@@ -208,13 +219,8 @@ EOSQL;
 	 *
 	 * @return boolean
 	 */
-
 	protected function _getAttributeData() {
-		// Initializations
-		//$path = $this->_feedPath;
-		$done = false;
-		$offset = 0;
-
+		$this->log('starting _getAttributeData');
 		$filename = $this->_feedPath . DS . "attributes" . '.' . $this->outputFileExtension;
 		$arrayExcludeFields = explode(",", $this->_excludedFields);
 
@@ -230,34 +236,30 @@ EOSQL;
 			'varchar',
 			'decimal',
 			'datetime',
-//			'catalog_category_product',
 		);
-
-		$multiSelectValues = $this->getMultiSelectValues();
 
 		$write = $this->_getConnection();
 
-		// This _should_ be escaped to prevent SQL injection... however the source of data is in the
-		// admin panel so _should_ be generally safe.  TODO: Check the Magento writer DB object for ways
-		// to escape content.
 		$excludeFields = implode("', '", $arrayExcludeFields);
 		if (!empty($excludeFields)) {
+			$this->log('adding exclude fields');
 			$excludeFields = " AND attribute_code NOT IN ('" . $excludeFields . "')";
 		}
 
+		$this->log(sprintf('going to open feed file %s', $filename));
 		$output = new CsvWriter($filename, $this->outputFileDelimiter, $this->bufferSize);
+		$this->log('feed file open, appending header');
 		$output->appendRow(array('unique_id', 'key', 'value'));
+		$this->log('header appended');
 
-		//$content = "unique_id\tkey\tvalue\n";
-
-		// Loop through each of the catalog_product_entity_XXX tables separately.  Despite tribal knowledge to the contrary
-		// among DB developers, in this specific case multiple queries happens to be faster than multiple joins.
 		foreach ($tables as $table) {
-			//$output->appendRow(array('NOW', 'OUTPUTTING', $table));
+			$this->log(sprintf('starting to pull from attribute table %s', $table));
+
 			$done = false;
 			$offset = 0;
 			$valueTable = $productEntityValueTable . $table;
 			if ($table == "catalog_category_product") {
+				$this->log('creating query for catalog_category_product');
 
 				$selectQry = <<<EOSQL
 SELECT 
@@ -265,6 +267,7 @@ SELECT
     e.sku,
     a.attribute_code,
     a.source_model,
+    a.frontend_input,
     a.attribute_id,
 	a.attribute_code As value
 FROM
@@ -276,13 +279,7 @@ WHERE
 ORDER BY e.entity_id ASC
 EOSQL;
 
-				//die($selectQry);
-			} elseif ($this->_optionType == 'eav') {
-				// No temporary table any more, after exhaustive testing. It takes just as long to itterate
-				// through the temp table as it does through a fresh query, plus the temp table has the
-				// overhead of being set up in the first place.  This query takes less than 2 seconds each
-				// time it is called, compared to the over 5 minutes it took previously, when the temp
-				// table was a good idea.
+			} else {
 				$valColumn = "v.value";
 				$eaovTable = '';
 				if ($table == 'int') {
@@ -298,12 +295,13 @@ SELECT
     e.sku,
     a.attribute_code,
     a.source_model,
+    a.frontend_input,
     a.attribute_id,
     $valColumn
 FROM
     $productEntityTable e
 LEFT JOIN
-    $valueTable v ON e.entity_id = v.entity_id
+    $valueTable v ON e.entity_id = v.entity_id and v.store_id = 0
 LEFT JOIN
     $eavAttributeTable a ON v.attribute_id = a.attribute_id
 $eaovTable
@@ -314,63 +312,18 @@ ORDER BY e.entity_id ASC
 EOSQL;
 				Mage::log($selectQry);
 
-			} else {
-				$selectQry = <<<EOSQL
-SELECT
-    e.entity_id,
-    e.sku,
-    a.attribute_code,
-    a.source_model,
-    a.attribute_id,
-    v.value
-FROM
-    $productEntityTable e
-FF0000LEFT JOIN
-    $valueTable v ON e.entity_id = v.entity_id
-LEFT JOIN
-    $eavAttributeTable a ON v.attribute_id = a.attribute_id
-WHERE
-    e.entity_type_id = $this->_entityTypeId
-$excludeFields
-ORDER BY e.entity_id ASC
-EOSQL;
 			}
 
 			while (!$done) {
-				//echo "TableName: " . $table;
-				//die( "select Query: " . $selectQry);
-
+				$this->log(sprintf('querying data for table %s at offset %d', $table, $offset));
 				try {
-					// Messy, messy, messy.  I appologize in advance.
-					// Perhaps some prose will help.
-					// The fetchAll() within this first if() statement runs the query, including the LIMIT and OFFSET.
-					// Then, we itterate through the results.  If the value is a number or a list of comma-separated numbers, then
-					// we attempt to dereference to the actual values for the field.
-					// Finally, at the end of itterating through the results, we write to disk and reset our loop-specific variables before
-					// launching back through the while() above and doing fetchAll() again.
-					// Also note the foreach (tables as table) above, which moves us to the next DB table.
 					if (($rows = $write->fetchAll($selectQry . ' LIMIT ' . $offset . ', ' . $this->_batchSize)) && (count($rows) > 0)) {
+						$this->log(sprintf('fetch all succeeded for att type %s, processing %d rows', $table, count($rows)));
 						foreach ($rows as $row) {
-							$values = explode(',', $row['value']);
-
-							if ($values[0] == "category_ids" && $row['attribute_code'] == 'category_ids') {
-								$category_ids_for_export = "";
-								$select_qry = 'SELECT category_id FROM ' . $categoryProductTable . ' WHERE product_id = "' . $row['entity_id'] . '"';
-								$rows1 = $write->fetchAll($select_qry);
-								foreach ($rows1 as $category_data) {
-									//$content .= "\"" . $row['sku'] . "\"\t\"category_id\"\t\"" . $category_data['category_id'] . "\"\n";
-									$output->appendRow(array($row['sku'], 'category_id', $category_data['category_id']));
-								}
-							} elseif ($row['attribute_code'] == 'country_of_manufacture') {
-								//$content .= "\"" . $row['sku'] . "\"\t\"" . $row['attribute_code'] . "\"\t\"" . str_replace("\"", "\"\"", $countryMap[$row['value']]) . "\"\n";
-								$output->appendRow(array($row['sku'], $row['attribute_code'], $this->getCountryName($row['value'])));
-
-							} else if (is_numeric($values[0])) {
+							if ($row['frontend_input'] == 'multiselect') {
+								$values = explode(',', $row['value']);
 								foreach ($values as $val) {
-									if (false && !empty($multiSelectValues[$row['attribute_code']][$val])) {
-										//$content .= "\"" . $row['sku'] . "\"\t\"" . $row['attribute_code'] . "\"\t\"" . str_replace("\"", "\"\"", $multiSelectValues[$row['attribute_code']][$val]) . "\"\n";
-										$output->appendRow(array($row['sku'], $row['attribute_code'], $multiSelectValues[$row['attribute_code']][$val]));
-									} elseif ($table == 'int' && !empty($row['source_model'])) {
+									if ($table == 'int' && !empty($row['source_model'])) {
 										$source = Mage::getSingleton($row['source_model']);
 										if ($row['source_model'] == 'eav/entity_attribute_source_table') {
 											$attribute = Mage::getModel('eav/entity_attribute')->load($row['attribute_id']);
@@ -378,64 +331,90 @@ EOSQL;
 										}
 										$output->appendRow(array($row['sku'], $row['attribute_code'], $source->getOptionText($row['value'])));
 									} else {
-										//$content .= "\"" . $row['sku'] . "\"\t\"" . $row['attribute_code'] . "\"\t\"" . str_replace("\"", "\"\"", $val) . "\"\n";
 										$output->appendRow(array($row['sku'], $row['attribute_code'], $val));
 									}
 								}
-							} // Otherwise, add each individually.
-							else {
-								//$content .= "\"" . $row['sku'] . "\"\t\"" . $row['attribute_code'] . "\"\t\"" . str_replace("\"", "\"\"", $row['value']) . "\"\n";
+							} else if ($row['attribute_code'] == 'category_ids' && $row['value'] == "category_ids") {
+								$select_qry = 'SELECT category_id FROM ' . $categoryProductTable . ' WHERE product_id = "' . $row['entity_id'] . '"';
+								$rows1 = $write->fetchAll($select_qry);
+								foreach ($rows1 as $category_data) {
+									$output->appendRow(array($row['sku'], 'category_id', $category_data['category_id']));
+								}
+							} elseif ($row['attribute_code'] == 'country_of_manufacture') {
+								$output->appendRow(array($row['sku'], $row['attribute_code'], $this->getCountryName($row['value'])));
+
+							} elseif ($table == 'int' && !empty($row['source_model']) && $row['source_model'] != 'eav/entity_attribute_source_table') {
+								try {
+									$source = Mage::getSingleton($row['source_model']);
+									$attribute = Mage::getModel('eav/entity_attribute')->load($row['attribute_id']);
+									$source->setAttribute($attribute);
+									$output->appendRow(array($row['sku'], $row['attribute_code'], $source->getOptionText($row['value'])));
+								} catch (Exception $e) {
+									$this->log(sprintf('%s - Caught Exception on line %d or %s: %s', date('c'), $e->getLine(), $e->getFile(), $e->getTraceAsString()));
+									$output->appendRow(array($row['sku'], $row['attribute_code'], $row['value']));
+								}
+							} else {
 								$output->appendRow(array($row['sku'], $row['attribute_code'], $row['value']));
 							}
 						}
-
-
-						//$this->writeFile($filename, '', $content, ($firstRecord ? 1 : 2));
-
-						// Reset for the next iteration.
-						// Commentary: It is necessary to set for next iteration at the end, rather than the beginning, because the first
-						// iteration has special cases, such as setting the TSV header and removing/re-creating the file itself.
-						// $firstRecord = false;
-						// $content = '';
 						$offset += $this->_batchSize;
 					} else {
+						$this->log(sprintf('done with table %s', $table));
 						$done = true;
 					}
 				} catch (Exception $e) {
 					// remove lock
 					Mage::helper('hawksearch_datafeed/feed')->RemoveFeedLocks();
 
-					if ($this->isLoggingEnabled) {
-						Mage::log(date('c') . " - Exception thrown on line " . $e->getLine() . " of " . $e->getFile() . ": " . $e, null, 'hawksearch_errors.log');
-					}
+					$this->log(sprintf('%s - Exception thrown on line %d or %s: %s', date('c'), $e->getLine(), $e->getFile(), $e->getTraceAsString()));
+					$this->log('exiting function _getAttributeData() due to exception');
 					return false;
 				}
 			}
 		}
-
+		$this->log('going to get product collection for category id selection');
 		/* custom attribute code/category_id */
 		$collection = Mage::getModel('catalog/product')->getCollection();
 		$collection->addAttributeToSelect('sku');
-		$collection->addAttributeToFilter('visibility', array('neq' => Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE));
+		//$collection->addAttributeToFilter('visibility', array('neq' => Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE));
 		if (!Mage::helper('hawksearch_datafeed/data')->getAllowDisabledAttribute()) {
+			$this->log('adding status filter');
 			$collection->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
 		}
-		if(!Mage::helper('hawksearch_datafeed/data')->isIncludeOutOfStockItems()) {
+		if (!Mage::helper('hawksearch_datafeed/data')->isIncludeOutOfStockItems()) {
+			$this->log('adding out of stock filter');
 			/** @var Mage_CatalogInventory_Model_Stock $stockfilter */
 			$stockfilter = Mage::getSingleton('cataloginventory/stock');
 			$stockfilter->addInStockFilterToCollection($collection);
 		}
 
+		$this->log(sprintf('setting page size to %d', $this->_batchSize));
 		$collection->setPageSize($this->_batchSize);
 		$totalPages = $collection->getLastPageNumber();
+		$this->log(sprintf('retrieved %d total pages', $totalPages));
 
 		$currentPage = 1;
 		do {
+			$this->log(sprintf('setting current page to %d', $currentPage));
 			$collection->setCurPage($currentPage);
+			$collection->clear();
+			$this->log(sprintf('going to process %d products on page %d', $collection->count(), $currentPage));
+
+			/*
+			 * add ratings information
+			 */
+			/** @var Mage_Review_Model_Review $review */
+			$review = Mage::getSingleton('review/review');
+			$review->appendSummary($collection);
+			
 			/** @var Mage_Catalog_Model_Product $product */
 			foreach ($collection as $product) {
-				foreach($product->getCategoryIds() as $id) {
+				foreach ($product->getCategoryIds() as $id) {
 					$output->appendRow(array($product->getSku(), 'category_id', $id));
+				}
+				if(($rs = $product->getRatingSummary()) &&  $rs->getReviewsCount() > 0){
+					$output->appendRow(array($product->getSku(), 'rating_summary', $rs->getRatingSummary()));
+					$output->appendRow(array($product->getSku(), 'reviews_count', $rs->getReviewsCount()));
 				}
 				/* Example of custom attribute generation */
 //				$product->load('media_gallery');
@@ -455,90 +434,118 @@ EOSQL;
 //					}
 //				}
 			}
-			$collection->clear();
 			$currentPage++;
 		} while ($currentPage <= $totalPages);
 
+		$this->log('done processing attributes');
 		return true;
 	}
 
+	/**
+	 * @return bool
+	 * @throws Mage_Core_Exception
+	 */
 	protected function _getCategoryData() {
-		$done = false;
-		$offset = 0;
+		$this->log('starting _getCategoryData()');
 		$filename = $this->_feedPath . DS . "hierarchy" . '.' . $this->outputFileExtension;
 
-		//$firstRecord = true;
+		$collection = Mage::getModel('catalog/category')->getCollection();
+		$collection->addAttributeToSelect(array('name', 'is_active', 'parent_id', 'position'));
+		$collection->addAttributeToFilter('is_active', array('eq' => '1'));
+		$collection->addAttributeToSort('entity_id')->addAttributeToSort('parent_id')->addAttributeToSort('position');
 
-		$categoryTable = $this->_tablePrefix . 'catalog_category_entity';
-		$eavAttributesTable = $this->_tablePrefix . 'eav_attribute';
-		$categoryVarCharTable = $this->_tablePrefix . 'catalog_category_entity_varchar';
+		$collection->setPageSize($this->_batchSize);
+		$pages = $collection->getLastPageNumber();
+		$currentPage = 1;
 
-		$write = $this->_getConnection();
-
-		$selectQry = <<<EOSQL
-SELECT
-    a.entity_id,
-    a.parent_id,
-    b.value,
-    a.position
-FROM
-    $categoryTable AS a
-LEFT JOIN
-    $categoryVarCharTable AS b ON a.entity_id = b.entity_id
-WHERE
-    b.attribute_id IN
-    (
-        SELECT 
-            attribute_id
-        FROM
-            $eavAttributesTable
-        WHERE
-            attribute_code = 'name'
-    )
-AND
-    b.store_id = '0'
-AND
-    a.parent_id != '0'
-ORDER BY
-    a.position ASC
-EOSQL;
-
-		//$content = "category_id\tcategory_name\tparent_category_id\tsort_order\n1\tRoot\t0\t0\n";
+		$this->log(sprintf('going to open feed file %s', $filename));
 		$output = new CsvWriter($filename, $this->outputFileDelimiter, $this->bufferSize);
-		$output->appendRow(array('category_id', 'category_name', 'parent_category_id', 'sort_order'));
-		$output->appendRow(array('1', 'Root', '0', '0'));
+		$this->log('file open, going to append header and root');
+		$output->appendRow(array('category_id', 'category_name', 'parent_category_id', 'sort_order', 'is_active', 'category_url'));
+		$output->appendRow(array('1', 'Root', '0', '0', '1', '/'));
+		$this->log('header and root appended');
+		$base = Mage::app()->getStore()->getBaseUrl();
 
-		while (!$done) {
-			try {
-				if ($rows = $write->fetchAll($selectQry . ' LIMIT ' . $offset . ', ' . $this->_batchSize)) {
-					if (count($rows) > 0) {
-						foreach ($rows as $row) {
-							//$content .= $row['entity_id'] . "\t" . $row['value'] . "\t" . $row['parent_id'] . "\t" . $row['position'] . "\n";
-							$output->appendRow(array($row['entity_id'], $row['value'], $row['parent_id'], $row['position']));
-						}
-						$offset += $this->_batchSize;
-						//$this->writeFile($filename, '', $content, ($firstRecord ? 1 : 2));
-						//$firstRecord = false;
-						//$content = '';
-					}
-				} else {
-					$done = true;
+		$cats = array();
+		do {
+			$this->log(sprintf('getting category page %d', $currentPage));
+			$collection->setCurPage($currentPage);
+			$collection->clear();
+			$collection->load();
+			foreach ($collection as $cat) {
+				$fullUrl = Mage::helper('catalog/category')->getCategoryUrl($cat);
+				$category_url = substr($fullUrl, strlen($base));
+				if(substr($category_url, 0, 1) != '/'){
+					$category_url = '/' . $category_url;
 				}
-			} catch (Exception $e) {
-				// remove lock
-				Mage::helper('hawksearch_datafeed/feed')->RemoveFeedLocks();
-
-				if ($this->isLoggingEnabled) {
-					Mage::log("SQL ERROR: (" . $e . ")", null, 'hawksearch_errors.log');
-				}
-				return false;
+				$this->log(sprintf("got full category url: %s, returning relative url %s", $fullUrl, $category_url));
+				$cats[] = array(
+					'id' => $cat->getId(),
+					'name' => $cat->getName(),
+					'pid' => $cat->getParentId(),
+					'pos' => $cat->getPosition(),
+					'ia' => $cat->getIsActive(),
+					'url' => $category_url
+				);
 			}
-		} //end whiledone loop
+			$currentPage++;
+		} while ($currentPage <= $pages);
 
+		$rcid = Mage::app()->getStore()->getRootCategoryId();
+		$myCategories = array();
+		foreach($cats as $storecat){
+			if($storecat['id'] == $rcid){
+				$myCategories[] = $storecat;
+			}
+		}
+
+		$this->log("using root category id: $rcid");
+		$this->r_find($rcid, $cats, $myCategories);
+
+		foreach($myCategories as $final) {
+			$output->appendRow(array(
+				$final['id'],
+				$final['name'],
+				$final['pid'],
+				$final['pos'],
+				$final['ia'],
+				$final['url']
+			));
+		}
+
+		$this->log('done with _getCategoryData()');
 		return true;
+	}
+
+	/**
+	 * Recursively sets up the category tree without introducing
+	 * duplicate data.
+	 *
+	 * @param $pid
+	 * @param $all
+	 * @param $tree
+	 */
+	private function r_find($pid, &$all, &$tree) {
+		foreach($all as $item) {
+			if($item['pid'] == $pid) {
+				$tree[] = $item;
+				$this->r_find($item['id'], $all, $tree);
+			}
+		}
 	}
 
 	protected function _getProductData() {
+		$this->log('starting _getProductData()');
+		/** @var Mage_Catalog_Helper_Product $helper */
+		$helper = Mage::helper('catalog/product');
+		$urlSuffix = $helper->getProductUrlSuffix(0);
+		if (!empty($urlSuffix)) {
+			if (substr($urlSuffix, 0, 1) != '.') {
+				$urlSuffix = '.' . $urlSuffix;
+			}
+		}
+		$this->log(sprintf("using '%s' for the product url suffix", $urlSuffix));
+
 		$done = false;
 		$offset = 0;
 		$filename = $this->_feedPath . DS . "items" . '.' . $this->outputFileExtension;
@@ -586,33 +593,35 @@ WHERE attribute_code IN
     'msrp',
     'special_price',
     'status',
+    'url_key',
 	'$brandAttribute'
 )
 AND entity_type_id = '$entity_type_id'
 EOSQL;
 
+		$this->log('fetching attribute codes');
 		if ($codeRows = $write->fetchAll($attrCodesQuery)) {
 			foreach ($codeRows as $row) {
 				$attrCodes[$row['attribute_code']] = $row['attribute_id'];
 			}
 		}
+		$this->log(sprintf('found %d codes: %s', count($attrCodes), implode("', '", array_keys($attrCodes))));
 
 		$disabled_sql = '';
 		$CONN = ' WHERE ';
 		if (!$allowDisabled) {
-			$disabled_sql = "LEFT JOIN $productEntityIntTable AS T6 ON P.entity_id = T6.entity_id AND T6.attribute_id = '" . $attrCodes['status'] . "'";
+			$disabled_sql = "LEFT JOIN $productEntityIntTable AS T6 ON P.entity_id = T6.entity_id AND T6.attribute_id = '" . $attrCodes['status'] . "' AND T6.store_id = '" . $this->_storeId . "'";
 		}
 
-		$brandAttribute = Mage::helper('hawksearch_datafeed/data')->getBrandAttribute();
 		if (!empty($brandAttribute)) {
 			$brand_select = ", B5.value AS Brand";
-			$brand_sql = "LEFT JOIN " . $productEntityIntTable . " AS B5 ON P.entity_id = B5.entity_id AND B5.attribute_id = '" . $attrCodes[$brandAttribute] . "'";
+			$brand_sql = "LEFT JOIN " . $productEntityIntTable . " AS B5 ON P.entity_id = B5.entity_id AND B5.attribute_id = '" . $attrCodes[$brandAttribute] . "' AND B5.store_id = '" . $this->_storeId . "'";
 		}
-		$urlfield = ", CONCAT(V1.value, '.html') AS Link";
-		$urljoin = "LEFT JOIN $productEntityUrlTable AS V1  ON P.entity_id = V1.entity_id  AND V1.attribute_id  = '" . $attrCodes['url_key'] . "'";
+		$urlfield = ", CONCAT(V1.value, '" . $urlSuffix . "') AS Link";
+		$urljoin = "LEFT JOIN $productEntityUrlTable AS V1  ON P.entity_id = V1.entity_id  AND V1.attribute_id  = '" . $attrCodes['url_key'] . "' AND V1.store_id = '" . $this->_storeId . "'";
 		if (!Mage::getSingleton('core/resource')->getConnection('core_write')->isTableExists('catalog_product_entity_url_key')) {
-			$urlfield = '';
-			$urljoin = '';
+			$this->log('using catalog_product_entity_url_table');
+			$urljoin = ' LEFT JOIN  ' . $productEntityVarCharTable . " AS V1  ON P.entity_id = V1.entity_id  AND V1.attribute_id  = '" . $attrCodes['url_key'] . "' AND V1.store_id = '" . $this->_storeId . "'";
 		}
 
 		$select_qry = "SELECT  P.attribute_set_id, P.entity_id AS ProductID, P.type_id, P.sku, P.has_options, V.value AS Name, T1.value AS ProdDesc, T2.value AS ShortDesc, T3.value AS MetaKeyword, T5.value AS visibility, D.value AS Price, S.value AS Special_Price, SDF.value As Special_Date_From, SDT.value As Special_Date_To, ST.qty, ST.is_in_stock AS IsInStock, X.value AS Msrp" . $brand_select . ", R.parent_id AS GroupID $urlfield,
@@ -622,36 +631,40 @@ EOSQL;
                             ELSE CONCAT('', V2.value)
                         END AS Image
                         FROM $productEntityTable AS P
-                        INNER JOIN " . $productEntityVarCharTable . "  AS V   ON P.entity_id = V.entity_id   AND V.attribute_id   = '" . $attrCodes['name'] . "'
-                        INNER JOIN " . $catalogInventoryStockTable . " AS ST  ON P.entity_id = ST.product_id 
+                        INNER JOIN " . $productEntityVarCharTable . "  AS V   ON P.entity_id = V.entity_id   AND V.attribute_id   = '" . $attrCodes['name'] . "' AND V.store_id = '" . $this->_storeId . "'
+                        INNER JOIN " . $catalogInventoryStockTable . " AS ST  ON P.entity_id = ST.product_id
+                        INNER JOIN " . $productEntityIntTable . " AS VIS ON VIS.entity_id = P.entity_id AND VIS.value != 1
 						" . $urljoin . "
-                        LEFT JOIN  " . $productEntityVarCharTable . "  AS V2  ON P.entity_id = V2.entity_id  AND V2.attribute_id  = '" . $attrCodes['image'] . "'
-                        LEFT JOIN  " . $productEntityTextTable . "     AS T1  ON P.entity_id = T1.entity_id  AND T1.attribute_id  = '" . $attrCodes['description'] . "'
-                        LEFT JOIN  " . $productEntityTextTable . "     AS T2  ON P.entity_id = T2.entity_id  AND T2.attribute_id  = '" . $attrCodes['short_description'] . "'
-                        LEFT JOIN  " . $productEntityTextTable . "     AS T3  ON P.entity_id = T3.entity_id  AND T3.attribute_id  = '" . $attrCodes['meta_keyword'] . "'
-                        LEFT JOIN  " . $productEntityIntTable . "      AS T5  ON P.entity_id = T5.entity_id  AND T5.attribute_id  = '" . $attrCodes['visibility'] . "'
+                        LEFT JOIN  " . $productEntityVarCharTable . "  AS V2  ON P.entity_id = V2.entity_id  AND V2.attribute_id  = '" . $attrCodes['image'] . "' AND V2.store_id = '" . $this->_storeId . "'
+                        LEFT JOIN  " . $productEntityTextTable . "     AS T1  ON P.entity_id = T1.entity_id  AND T1.attribute_id  = '" . $attrCodes['description'] . "' AND T1.store_id = '" . $this->_storeId . "'
+                        LEFT JOIN  " . $productEntityTextTable . "     AS T2  ON P.entity_id = T2.entity_id  AND T2.attribute_id  = '" . $attrCodes['short_description'] . "' AND T2.store_id = '" . $this->_storeId . "'
+                        LEFT JOIN  " . $productEntityTextTable . "     AS T3  ON P.entity_id = T3.entity_id  AND T3.attribute_id  = '" . $attrCodes['meta_keyword'] . "' AND T3 .store_id = '" . $this->_storeId . "'
+                        LEFT JOIN  " . $productEntityIntTable . "      AS T5  ON P.entity_id = T5.entity_id  AND T5.attribute_id  = '" . $attrCodes['visibility'] . "' AND T5.store_id = '" . $this->_storeId . "'
                         " . $disabled_sql . "
-                        LEFT JOIN  " . $productEntityDecimalTable . "  AS D   ON P.entity_id = D.entity_id   AND D.attribute_id   = '" . $attrCodes['price'] . "'
-                        LEFT JOIN  " . $productEntityDateTimeTable . " AS SDF ON P.entity_id = SDF.entity_id AND SDF.attribute_id = '" . $attrCodes['special_from_date'] . "'
-                        LEFT JOIN  " . $productEntityDateTimeTable . " AS SDT ON P.entity_id = SDT.entity_id AND SDT.attribute_id = '" . $attrCodes['special_to_date'] . "'
+                        LEFT JOIN  " . $productEntityDecimalTable . "  AS D   ON P.entity_id = D.entity_id   AND D.attribute_id   = '" . $attrCodes['price'] . "' AND D.store_id = '" . $this->_storeId . "'
+                        LEFT JOIN  " . $productEntityDateTimeTable . " AS SDF ON P.entity_id = SDF.entity_id AND SDF.attribute_id = '" . $attrCodes['special_from_date'] . "' AND SDF.store_id = '" . $this->_storeId . "'
+                        LEFT JOIN  " . $productEntityDateTimeTable . " AS SDT ON P.entity_id = SDT.entity_id AND SDT.attribute_id = '" . $attrCodes['special_to_date'] . "' AND SDT.store_id = '" . $this->_storeId . "'
 					    " . $brand_sql . "
-                        LEFT JOIN  " . $productEntityDecimalTable . "  AS X   ON P.entity_id = X.entity_id   AND X.attribute_id   = '" . $attrCodes['msrp'] . "'
-						
+                        LEFT JOIN  " . $productEntityDecimalTable . "  AS X   ON P.entity_id = X.entity_id   AND X.attribute_id   = '" . $attrCodes['msrp'] . "' AND X.store_id = '" . $this->_storeId . "'
                         LEFT JOIN  " . $productRelationTable . "       AS R   ON P.entity_id = R.parent_id   OR  P.entity_id = R.child_id 
-                        LEFT JOIN  " . $productEntityDecimalTable . "  AS S   ON P.entity_id = S.entity_id   AND S.attribute_id   = '" . $attrCodes['special_price'] . "'";
+                        LEFT JOIN  " . $productEntityDecimalTable . "  AS S   ON P.entity_id = S.entity_id   AND S.attribute_id   = '" . $attrCodes['special_price'] . "' AND S.store_id = '" . $this->_storeId . "'";
 
 		if (!Mage::helper('hawksearch_datafeed/data')->isIncludeOutOfStockItems()) {
+			$this->log('filtering for in-stock items');
 			$select_qry .= " $CONN ST.is_in_stock = 1";
 			$CONN = ' AND ';
 		}
 		if (!$allowDisabled) {
+			$this->log('filtering disabled items');
 			$select_qry .= " $CONN T6.value = 1 ";
 			$CONN = ' AND ';
 		}
 
-		// die($select_qry);
-		// $content = "\"product_id\"\t\"unique_id\"\t\"name\"\t\"url_detail\"\t\"image\"\t\"price_retail\"\t\"price_sale\"\t\"price_special\"\t\"price_special_from_date\"\t\"price_special_to_date\"\t\"group_id\"\t\"description_short\"\t\"description_long\"\t\"brand\"\t\"sku\"\t\"sort_default\"\t\"sort_rating\"\t\"is_free_shipping\"\t\"is_new\"\t\"is_on_sale\"\t\"keyword\"\t\"metric_inventory\"\n";
+		$select_qry .= " GROUP BY P.entity_id ";
+
+		$this->log(sprintf('going to open feed file %s', $filename));
 		$output = new CsvWriter($filename, $this->outputFileDelimiter, $this->bufferSize);
+		$this->log('appending feed header');
 		$output->appendRow(array(
 			'product_id',
 			'unique_id',
@@ -676,9 +689,13 @@ EOSQL;
 			'keyword',
 			'metric_inventory'));
 
+		$full_query = 'not yet set';
 		while (!$done) {
 			try {
-				if ($rows = $write->fetchAll($select_qry . ' LIMIT ' . $offset . ', ' . $this->_batchSize)) {
+				$full_query = $select_qry . ' LIMIT ' . $offset . ', ' . $this->_batchSize;
+				$this->log(sprintf('going to fetch %d products starting at offset %d', $this->_batchSize, $offset));
+				if ($rows = $write->fetchAll($full_query)) {
+					$this->log(sprintf('query returned %d rows', count($rows)));
 					if (count($rows) > 0) {
 						foreach ($rows as $row) {
 							//$name = empty($row['Name']) ? $row['Name'] : str_replace("\"", "\"\"", $row['Name']);
@@ -694,7 +711,6 @@ EOSQL;
 							} else {
 								$brand_text = "";
 							}
-							//$content .= "\"" . $row['ProductID'] . "\"\t\"" . $row['sku'] . "\"\t\"" . $name . "\"\t\"" . $row['Link'] . "\"\t\"" . $row['Image'] . "\"\t\"" . $row['Msrp'] . "\"\t\"" . $row['Price'] . "\"\t\"" . $row['Special_Price'] . "\"\t\"" . $row['Special_Date_From'] . "\"\t\"" . $row['Special_Date_To'] . "\"\t\"" . $row['GroupID'] . "\"\t\"" . $shortdescription . "\"\t\"" . $description . "\"\t\"" . $brand_text . "\"\t\"" . $row['sku'] . "\"\t\"0\"\t\"0\"\t\"0\"\t\"0\"\t\"" . $data_is_on_sale . "\"\t\"" . $metakeyword . "\"\t\"" . $row['qty'] . "\"\n";
 							$output->appendRow(array(
 								$row['ProductID'],
 								$row['sku'],
@@ -721,30 +737,27 @@ EOSQL;
 
 						}
 						$offset += $this->_batchSize;
-						//$this->writeFile($filename, '', $content, ($firstRecord ? 1 : 2));
-						//$firstRecord = false;
-						//$content = '';
 					}
 				} else {
+					$this->log('done fetching products');
 					$done = true;
 				}
 			} catch (Exception $e) {
 				// remove lock
 				Mage::helper('hawksearch_datafeed/feed')->RemoveFeedLocks();
 
-				if ($this->isLoggingEnabled) {
-					Mage::log("SQL ERROR: (" . $e . ")", null, 'hawksearch_errors.log');
-				}
-
+				$this->log(sprintf('%s - Exception thrown on line %d or %s: %s', date('c'), $e->getLine(), $e->getFile(), $e->getTraceAsString()));
+				$this->log(sprintf("\nSQL was:\n%s", $full_query));
+				$this->log('exiting function _getProductData() due to exception');
 				return false;
 			}
 		} // end while
+		$this->log('done with _getProductData()');
 		return true;
 	}
 
 	protected function _getContentData() {
-		//$resource = Mage::getSingleton('core/resource');
-
+		$this->log('starting _getContentData()');
 		$done = false;
 		$offset = 0;
 		$baseurl = Mage::getUrl();
@@ -759,13 +772,18 @@ EOSQL;
 
 		$write = $this->_getConnection();
 
-		//$content = "unique_id\tname\turl_detail\tdescription_short\tcreated_date\n";
+		$this->log(sprintf('going to open feed file %s', $filename));
 		$output = new CsvWriter($filename, $this->outputFileDelimiter, $this->bufferSize);
+		$this->log('feed file open, going to append header');
 		$output->appendRow(array('unique_id', 'name', 'url_detail', 'description_short', 'created_date'));
+		$this->log('header appended, going to fetch data');
 
+		$full_query = 'not yet set';
 		while (!$done) {
 			try {
-				if ($rows = $write->fetchAll($select_qry . ' LIMIT ' . $offset . ', ' . $this->_batchSize)) {
+				$this->log(sprintf('going to fetch %d rows at offset %d', $this->_batchSize, $offset));
+				$full_query = $select_qry . ' LIMIT ' . $offset . ', ' . $this->_batchSize;
+				if ($rows = $write->fetchAll($full_query)) {
 					if (($numRows = count($rows)) && $numRows > 0) {
 						foreach ($rows as $row) {
 							//$content .= $row['page_id'] . "\t" . $row['title'] . "\t" . $row['Link'] . "\t" . $row['content_heading'] . "\t" . $row['creation_time'] . "\n";
@@ -773,9 +791,6 @@ EOSQL;
 						}
 
 						$offset += $this->_batchSize;
-						// $this->writeFile($filename, '', $content, ($firstRecord ? 1 : 2));
-						// $firstRecord = false;
-						// $content = '';
 					} else {
 						$done = true;
 					}
@@ -786,49 +801,15 @@ EOSQL;
 				// remove lock
 				Mage::helper('hawksearch_datafeed/feed')->RemoveFeedLocks();
 
-				if ($this->isLoggingEnabled) {
-					Mage::log("SQL ERROR: (" . $e . ")", null, 'hawksearch_errors.log');
-				}
+				$this->log(sprintf('%s - Exception thrown on line %d or %s: %s', date('c'), $e->getLine(), $e->getFile(), $e->getTraceAsString()));
+				$this->log(sprintf("\nSQL was:\n%s", $full_query));
+				$this->log('exiting function _getContentData() due to exception');
 				return false;
 			}
 		} // end while
+		$this->log('done fetching content data');
 		return true;
 	}
-
-	/*private function writeFile($filename, $header, $content, $recordcount) {
-		if ($recordcount === 1) {
-			if (file_exists($filename)) {
-				unlink($filename);
-			}
-		}
-
-		if (!file_exists($filename)) {
-			$handle = fopen($filename, "a");
-			fclose($handle);
-		}
-
-		if (is_writable($filename)) {
-			if (!$handle = fopen($filename, 'a')) {
-				if ($this->isLoggingEnabled) {
-					Mage::log("Cannot open file (" . $filename . ")", null, 'hawksearch_errors.log');
-				}
-				return false;
-			}
-			if (fwrite($handle, $content) === FALSE) {
-				if ($this->isLoggingEnabled) {
-					Mage::log("Cannot write to file (" . $filename . ")", null, 'hawksearch_errors.log');
-				}
-				return false;
-			}
-			return true; // Success, wrote ($somecontent) to file ($filename);
-			fclose($handle);
-		} else {
-			if ($this->isLoggingEnabled) {
-				Mage::log("The file " . $filename . " is not writable", null, 'hawksearch_errors.log');
-			}
-		}
-		return true;
-	}*/
 
 	public function getCountryName($code) {
 		/* map friendly country_of_origin names */
@@ -845,10 +826,24 @@ EOSQL;
 		return isset($this->countryMap[$code]) ? $this->countryMap[$code] : $code;
 	}
 
-	public function generateFeed($price_feed = false) {
+	public function generateFeed() {
 		try {
-			//exports Attribute Data
-			$this->_getAttributeData();
+			$sid = Mage::app()->getDefaultStoreView()->getId();
+			// for working with proxy module
+
+//			$code = Mage::getStoreConfig('hawksearch_proxy/proxy/store_code');
+//			if(!empty($code)) {
+//				/** @var Mage_Core_Model_Resource_Store_Collection $store */
+//				$store = Mage::getModel('core/store')->getCollection();
+//				$sid = $store->addFieldToFilter('code', $code)->getFirstItem()->getId();
+//			}
+
+			// end proxy module connection
+
+			$this->log('starting environment for store id: ' . $sid);
+			/** @var Mage_Core_Model_App_Emulation $appEmulation */
+			$appEmulation = Mage::getSingleton('core/app_emulation');
+			$initialEnvironmentInfo = $appEmulation->startEnvironmentEmulation($sid);
 
 			//exports Category Data
 			$this->_getCategoryData();
@@ -856,49 +851,75 @@ EOSQL;
 			//exports Product Data
 			$this->_getProductData();
 
+			//exports Attribute Data
+			$this->_getAttributeData();
+
 			//exports CMS / Content Data
 			$this->_getContentData();
 
-			//refresh image cache
-			$this->refreshImageCache();
-
+			//refresh image cache no longer part of feed generation
+			//$this->refreshImageCache();
+			$this->log('done generating data feed files, going to remove lock files.');
 			// remove locks
 			Mage::helper('hawksearch_datafeed/feed')->RemoveFeedLocks();
+			$appEmulation->stopEnvironmentEmulation($initialEnvironmentInfo);
 		} catch (Exception $e) {
 			// remove lock
 			Mage::helper('hawksearch_datafeed/feed')->RemoveFeedLocks();
-			#Mage::log("Exception: {$e->getMessage()}");
-			if ($this->isLoggingEnabled) {
-				Mage::log(sprintf('Exception: %s', $e->getMessage()), null, 'hawksearch_errors.log');
-			}
+			$this->log(sprintf("General Exception %s at generateFeed() line %d, stack:\n%s", $e->getMessage(), $e->getLine(), $e->getTraceAsString()));
 		}
+		$this->log('done with generateFeed()');
 	}
 
-	public function refreshImageCache() {
-		$products = Mage::getModel('catalog/product')->getCollection()->addAttributeToSelect(array('image', 'small_image'));
-		$products->setPageSize(1000);
+	public function refreshImageCache($storeid = null) {
+		$this->log('starting refreshImageCache()');
+//		$sid = Mage::app()->getWebsite()->getDefaultGroup()->getDefaultStoreId();
+//		$h = Mage::helper("hawksearch_proxy");
+//		if (!empty($h)) {
+//			$sid = $h->getCategoryStoreId();
+//		}
+		$sid = Mage::app()->getDefaultStoreView()->getId();
 
+		$this->log('starting environment for store id: ' . $sid);
+
+		$appEmulation = Mage::getSingleton('core/app_emulation');
+		$initialEnvironmentInfo = $appEmulation->startEnvironmentEmulation($sid);
+
+		$products = Mage::getModel('catalog/product')
+			->getCollection()->addAttributeToSelect(array('image', 'small_image'));
+		$products->setPageSize(100);
 		$pages = $products->getLastPageNumber();
+
 		$currentPage = 1;
 
 		do {
+			$this->log(sprintf('going to page %d of images', $currentPage));
+			$products->clear();
 			$products->setCurPage($currentPage);
 			$products->load();
 
 			foreach ($products as $product) {
 				if (empty($this->_imageHeight)) {
-					Mage::helper('catalog/image')->init($product, 'small_image')->resize($this->_imageWidth) . '';
+					$this->log(
+						sprintf('going to resize image for url: %s',
+							Mage::helper('catalog/image')->init($product, 'small_image')->resize($this->_imageWidth
+							)));
 				} else {
-					Mage::helper('catalog/image')->init($product, 'small_image')->resize($this->_imageWidth, $this->_imageHeight) . '';
+					$this->log(
+						sprintf('going to resize image for url: %s',
+							Mage::helper('catalog/image')->init($product, 'small_image')->resize($this->_imageWidth, $this->_imageHeight
+							)));
 				}
 			}
 
 			$currentPage++;
 
 			//clear collection and free memory
-			$products->clear();
 
 		} while ($currentPage <= $pages);
+		$this->log('done generating image cache, going to remove locks.');
+		Mage::helper('hawksearch_datafeed/feed')->RemoveFeedLocks();
+		$appEmulation->stopEnvironmentEmulation($initialEnvironmentInfo);
 	}
 
 	/**
@@ -989,12 +1010,14 @@ class CsvWriter {
 	}
 
 	public function closeOutput() {
-		if (!$this->outputOpen) {
+		if ($this->outputOpen) {
+			if (false === fflush($this->outputFile)) {
+				throw new Exception(sprintf("CsvWriter: Failed to flush feed file: %s", $this->finalDestinationPath));
+			}
 			if (false === fclose($this->outputFile)) {
-				throw new Exception("CsvWriter: Failed to close destination file'$this->finalDestinationPath'.");
+				throw new Exception(sprintf("CsvWriter: Failed to close feed file ", $this->finalDestinationPath));
 			}
 			$this->outputOpen = false;
 		}
 	}
-
 }

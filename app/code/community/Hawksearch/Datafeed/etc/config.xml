@@ -12,7 +12,7 @@
 <config>
 	<modules>
 		<Hawksearch_Datafeed>
-			<version>1.0.0.2</version>
+			<version>1.0.3.1</version>
 		</Hawksearch_Datafeed>
 	</modules>
 	<global>
@@ -20,13 +20,6 @@
 			<hawksearch_datafeed>
 				<class>Hawksearch_Datafeed_Block</class>
 			</hawksearch_datafeed>
-<!--
-			<adminhtml>
-				<rewrite>
-					<system_config_form>Hawksearch_Datafeed_Block_System_Config_Form</system_config_form>
-				</rewrite>
-			</adminhtml>
--->
 		</blocks>
 		<helpers>
 			<hawksearch_datafeed>
@@ -64,22 +57,17 @@
 				<logging_enabled>1</logging_enabled>
 			</general>
 			<feed>
-				<generate/>
-				<submittal/>
 				<batch_limit>10000</batch_limit>
 				<image_width>135</image_width>
-				<brand_attribute/>
 				<exclude_fields>description,short_description,options_container,gift_message_available,visibility,status,tax_class_id,required_options,msrp_display_actual_price_type,enable_googlecheckout,created_at,updated_at,sku</exclude_fields>
-				<stockstatus>1</stockstatus>
+				<stockstatus>0</stockstatus>
 				<itemstatus>0</itemstatus>
-                <option_type>eav</option_type>
                 <delimiter>tab</delimiter>
                 <buffer_size>65536</buffer_size>
                 <output_file_ext>txt</output_file_ext>
                 <feed_path>var/hawksearch/feeds</feed_path>
 			</feed>
 			<cron>
-				<email/>
 				<frequency backend_model="adminhtml/system_config_backend_product_alert_cron">every_5min</frequency>
 				<disabled>0</disabled>
                 <time>02,00,00</time>
@@ -87,9 +75,6 @@
 		</hawksearch_datafeed>
 	</default>
 	<crontab>
-		<hawksearch_datafeed>
-			<job_code>hawksearch_datafeed</job_code>
-		</hawksearch_datafeed>
 		<jobs>
 			<hawksearch_datafeed>
 				<run>

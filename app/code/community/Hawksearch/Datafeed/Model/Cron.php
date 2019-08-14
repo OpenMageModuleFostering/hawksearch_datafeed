@@ -18,16 +18,12 @@ class Hawksearch_Datafeed_Model_Cron {
         if(!Mage::getStoreConfig('hawksearch_datafeed/cron/disabled'))
         {
             try {
-                Mage::helper('hawksearch_datafeed/feed')->generateFeedsForAllStores();
+				Mage::getModel('hawksearch_datafeed/feed')->generateFeed();
                 $msg = "HawkSeach Feed Generated!";
             }
             catch (Exception $e) {
                 $msg = $e->getMessage();
             }
-            catch (Exception $e) {
-                $msg = "Unknown Error: {$e->getMessage()} in {$e->getFile()} on line {$e->getLine()}. Please contact HawkSearch.";
-            }
-
             $this->_sendEmail($msg);
         }
     }
